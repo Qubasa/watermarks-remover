@@ -1213,15 +1213,40 @@ repos:
 
 `watermarks-remover-check` fails the commit and lists findings; `watermarks-remover-clean` is opt-in and rewrites staged files in place (exits 1 so you review the diff and re-stage — the same convention as auto-fixing hooks like `ruff --fix`). When the cleaner cannot process a file at all — it crashed, was killed, or produced no report — `watermarks-remover-clean` names that file and exits 3 instead, so a cleaner that failed is never mistaken for an already-clean file. Run either by hand with `python3 service/scripts/check_staged.py <files...>` / `clean_staged.py <files...>`.
 
+## treefmt (Nix)
+
+`flake.nix` exports the CLIs as `packages.<system>.default` (each entry point as `wm-<script>`) and a [treefmt-nix](https://github.com/numtide/treefmt-nix) module that runs `service/scripts/treefmt_clean.py` as a formatter:
+
+```nix
+# treefmt.nix of the consuming project; `watermarks-remover` is a flake input
+{
+  imports = [ inputs.watermarks-remover.treefmtModules.default ];
+  programs.watermarks-remover = {
+    enable = true;
+    # includes defaults to [ "*.md" "*.txt" "*.rst" ]
+    excludes = [ "tests/fixtures/*" ];
+  };
+}
+```
+
+`treefmt_clean.py` applies the Layer A text clean and follows the [treefmt formatter spec](https://treefmt.com/latest/reference/formatter-spec/), which `clean_staged.py` does not: it exits 0 after cleaning (nonzero only when a file could not be processed), never writes a file that is already clean, writes no `.bak` sidecar, and keeps permission bits. Every matched file is cleaned as text whatever its extension, and binary-looking files are refused. List only prose in `includes`, and exclude fixtures that carry invisible characters on purpose. In CI, `treefmt --fail-on-change` turns this into a gate.
+
 ## Tests
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install pytest
 .venv/bin/python -m pytest          # or: make test
 make smoke                          # quick CLI smoke on fixtures
+nix build .#checks.x86_64-linux.pytest   # or any other check: package, ruff, formatting, treefmt-module
 ```
 
 ## Changelog
+
+### Unreleased
+
+- Nix flake: `packages.<system>.default` with one `wm-<script>` wrapper per entry point, a treefmt-nix module (`treefmtModules.default`), and checks for pytest, ruff, formatting, and the module itself.
+- New `treefmt_clean.py`: Layer A text cleaning that follows the treefmt formatter spec (exit 0 after a fix, no write when already clean, no `.bak`, permission bits kept).
+- `common.safe_write_bytes` takes an optional `mode` for the written file.
 
 ### [v0.7.0](https://github.com/guillaumemeyer/watermarks-remover/releases/tag/v0.7.0) — `/clean` Layer B rewrite, watermark-stealing module, audio/video watermark removal, and benchmark/tooling breadth
 

@@ -31,8 +31,12 @@
 !/compose-check.sh
 !/compose.yaml
 !/CONTRIBUTING.md
+!/flake.nix
+!/flake.lock
 !/LICENSE
 !/Makefile
+!/nix/
+!/nix/**
 !/pytest.ini
 !/README.md
 !/requirements-dev.txt
